@@ -15,23 +15,24 @@ requirements = ['Click>=7.0', ]
 test_requirements = [ ]
 
 setup(
+    name="scance",
     author="Xiaotong Lu",
     author_email='lu000016@umn.edu',
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
     ],
     description="A computational workflow for cryptic exon identification in RNA-seq data.",
+    install_requires=["pysam", "gffutils", "pandas", "biopython","numpy","scipy.stats"],
     entry_points={
         'console_scripts': [
-            'ScanCE=ScanCE.cli:main',
+            'ScanCE=ScanCE.__main__:main'
+           
         ],
     },
     install_requires=requirements,
