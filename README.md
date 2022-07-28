@@ -20,9 +20,15 @@ $ pip install ScanCE
 # Usage
 
 ScanCE has two modes, `Scan_ce_strict` and `Scan_ce_loose`. 
-![alt text](https://github.com/ylab-hi/ScanCE/blob/master/ScanCE_strict.png?raw=true)https://github.com/ylab-hi/ScanCE
+![alt text](https://github.com/ylab-hi/ScanCE/blob/master/ScanCE_strict.png?raw=true)
 
 <img align="right" width="500" src="https://github.com/ylab-hi/ScanCE/blob/master/ScanCE_strict.png">
+
+<img
+  src="https://github.com/ylab-hi/ScanCE/blob/master/ScanCE_strict.png"
+  alt="Alt text"
+  title="Optional title"
+  style="display: inline-block; margin: 0 auto; max-width: 300px">
 
 
 
