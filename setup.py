@@ -38,6 +38,6 @@ setup(
     name='ScanCE',
     packages=find_packages(include=['ScanCE', 'ScanCE.*']),
     url='https://github.com/lu000016/ScanCE',
-    version='1.0',
+    version='1.1',
     zip_safe=False,
 )
