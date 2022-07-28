@@ -4,18 +4,13 @@
 
 from setuptools import setup, find_packages
 
-with open('README.md') as readme_file:
-    readme = readme_file.read()
+with open("README.md", encoding="utf-8") as fh:
+    long_description = fh.read()
 
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['Click>=7.0', ]
-
-test_requirements = [ ]
-
 setup(
-    name="scance",
     author="Xiaotong Lu",
     author_email='lu000016@umn.edu',
     python_requires='>=3.7',
@@ -35,15 +30,13 @@ setup(
            
         ],
     },
-    install_requires=requirements,
     license="MIT license",
-    long_description=readme + '\n\n' + history,
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     include_package_data=True,
-    keywords='ScanCE',
+    #keywords='ScanCE',
     name='ScanCE',
     packages=find_packages(include=['ScanCE', 'ScanCE.*']),
-    test_suite='tests',
-    tests_require=test_requirements,
     url='https://github.com/lu000016/ScanCE',
     version='1.0',
     zip_safe=False,
