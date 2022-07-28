@@ -23,7 +23,7 @@ setup(
         'Programming Language :: Python :: 3.8',
     ],
     description="A computational workflow for cryptic exon identification in RNA-seq data.",
-    install_requires=["pysam", "gffutils", "pandas", "biopython","numpy","scipy.stats"],
+    install_requires=["pysam", "gffutils", "pandas", "biopython","numpy","scipy"],
     entry_points={
         'console_scripts': [
             'ScanCE=ScanCE.__main__:main'
