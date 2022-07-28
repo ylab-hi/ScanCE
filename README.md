@@ -23,7 +23,7 @@ ScanCE has two modes, `Scan_ce_strict` and `Scan_ce_loose`.
 ![alt text](https://github.com/ylab-hi/ScanCE/blob/master/ScanCE_strict.png?raw=true)
 
 <img  width="600" src="https://github.com/ylab-hi/ScanCE/blob/master/ScanCE_strict.png">
-<img  width="800" src="https://github.com/ylab-hi/ScanCE/blob/master/ScanCE_loose.png">
+<img  width="700" src="https://github.com/ylab-hi/ScanCE/blob/master/ScanCE_loose.png">
 
 
 
