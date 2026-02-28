@@ -2,40 +2,37 @@
 import sys
 import os
 import subprocess
-import numpy as np
-import pandas as pd
-__version__ = 'v1.0'
-   
+
+__version__ = 'v2.0'
+
+COMMANDS = {
+    'Scan_ce_loose':   ('Scan_ce_loose.py',   'Short-read CE detection (loose, v1)'),
+    'Scan_ce_strict':  ('Scan_ce_strict.py',  'Short-read CE detection (strict, v1)'),
+    'Scan_ce_lr_loose':('Scan_ce_longread_loose.py', 'Long-read CE detection (loose, v1)'),
+    'Scan_ce_lr_strict':('Scan_ce_longread_strict.py','Long-read CE detection (strict, v1)'),
+    'scan_ce':         ('ScanCE_v3.py',        'Unified CE detection for SR/LR/SC (v3, recommended)'),
+}
+
 def main():
     file_abs_path = os.path.abspath(os.path.dirname(__file__))
 
-    try:
-        task = sys.argv[1]
-        if task not in ['Scan_ce_loose', 'Scan_ce_strict']:
-            if task not in ['-v', '--version']:
-                print(f'\nERROR: Unknown usage.')
-            raise ValueError
-        else:
-            if task == 'Scan_ce_loose':
-                print('\n')
-                args = sys.argv[2:]
-                subprocess.run(
-                    ['python', f'{file_abs_path}/Scan_ce_loose.py'] + args, check=True)
-            elif task == 'Scan_ce_strict':
-                print('\n')
-                args = sys.argv[2:]
-                subprocess.run(
-                    ['python', f'{file_abs_path}/Scan_ce_strict.py'] + args, check=True)
-    except:
+    task = sys.argv[1] if len(sys.argv) > 1 else ''
+
+    if task in COMMANDS:
+        script, _ = COMMANDS[task]
+        args = sys.argv[2:]
+        subprocess.run(['python', f'{file_abs_path}/{script}'] + args, check=True)
+    else:
+        if task and task not in ('-v', '--version'):
+            print(f'\nERROR: Unknown command: {task}')
         print(f'\nProgram:\tScanCE')
         print(f'Version:\t{__version__}')
         print(f'Usage:\t\tScanCE <command> [options]')
-        print(f'\nCommands:\tScan_ce_loose\t\t\tTool for detecting cryptic exon splicing events in loose standard')
-        print(f'\t\tScan_ce_strict\t\tTool for detecting cryptic exon splicing events in strict standard')   
- 
-            
+        print(f'\nCommands:')
+        for cmd, (_, desc) in COMMANDS.items():
+            print(f'\t{cmd:<22}{desc}')
+        print()
+
 
 if __name__ == '__main__':
-
     main()
-    
