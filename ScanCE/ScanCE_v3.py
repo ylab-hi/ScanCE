@@ -56,6 +56,9 @@ def parse_args():
     parser.add_argument('--min_junction_reads', type=int, default=2,
                         help='Min reads for internal junction (multi mode). '
                              'Lower to 1 for sparse single-cell data.')
+    parser.add_argument('--stringency', choices=['loose', 'strict'], default='loose',
+                        help='loose=cryptic junction endpoint anywhere within an annotated exon; '
+                             'strict=endpoint must be exactly at the exon boundary.')
     # SC-specific
     parser.add_argument('--cell_id', default=None,
                         help='Cell ID (sc mode). Auto-inferred from BAM filename if not given.')
@@ -171,7 +174,8 @@ def find_introns(read_iterator, mode='lr', stranded='no'):
 
 def ce_caller(bamfile, referencename, chrm,
               mode='lr', stranded='no', mapq=0,
-              primary_only=False, min_junc=2, ce_type='multi'):
+              primary_only=False, min_junc=2, ce_type='multi',
+              stringency='loose'):
     """
     对单条染色体进行 CE 检测。核心算法与 v2 一致，新增：
       - SR 模式（PSI、a_count）
@@ -219,7 +223,10 @@ def ce_caller(bamfile, referencename, chrm,
             strand        = feature.strand
 
             # Donor match
-            if intron_start + 1 in range(region_start, region_end + 1):
+            # loose: junction start anywhere within exon; strict: exactly at exon end
+            donor_range = range(region_end, region_end + 1) if stringency == 'strict' \
+                else range(region_start, region_end + 1)
+            if intron_start + 1 in donor_range:
                 try:
                     a = list(db.children(db[transcript_id],
                                          featuretype='exon', order_by='start'))
@@ -240,7 +247,10 @@ def ce_caller(bamfile, referencename, chrm,
                     continue
 
             # Acceptor match
-            if intron_end - 2 in range(region_start, region_end + 1):
+            # loose: junction end anywhere within exon; strict: exactly at exon start
+            acceptor_range = range(region_start, region_start + 1) if stringency == 'strict' \
+                else range(region_start, region_end + 1)
+            if intron_end - 2 in acceptor_range:
                 try:
                     b = list(db.children(db[transcript_id],
                                          featuretype='exon', order_by='end'))[::-1]
@@ -481,6 +491,7 @@ def main():
         print('Primary only    : {}'.format(args.primary_only))
     if args.ce_type == 'multi':
         print('Min junc reads  : {}'.format(args.min_junction_reads))
+    print('Stringency      : {}'.format(args.stringency))
     sys.stdout.flush()
 
     chrms = ['chr1',  'chr2',  'chr3',  'chr4',  'chr5',
@@ -501,6 +512,7 @@ def main():
             primary_only=args.primary_only,
             min_junc=args.min_junction_reads,
             ce_type=args.ce_type,
+            stringency=args.stringency,
         )
         ce_total.extend(ce)
 
