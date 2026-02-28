@@ -13,7 +13,7 @@ with open('HISTORY.rst') as history_file:
 setup(
     author="Xiaotong Lu",
     author_email='lu000016@umn.edu',
-    python_requires='>=3.7',
+    python_requires='>=3.6',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
@@ -37,7 +37,8 @@ setup(
     #keywords='ScanCE',
     name='ScanCE',
     packages=find_packages(include=['ScanCE', 'ScanCE.*']),
-    url='https://github.com/lu000016/ScanCE',
-    version='1.1',
+    package_data={'ScanCE': ['config.ini', '*.py']},
+    url='https://github.com/ylab-hi/ScanCE',
+    version='2.0',
     zip_safe=False,
 )

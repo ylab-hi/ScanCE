@@ -77,8 +77,9 @@ def config_getter(config_file='config.ini'):
     this_dir = os.path.dirname(os.path.realpath(__file__))
     config = ConfigParser(os.environ)
     config.read(os.path.join(this_dir, config_file))
-    annotation_ref = config.get('sorted GENCODE annotation', 'annotation')
-    return annotation_ref
+    annotation_ref  = config.get('sorted GENCODE annotation', 'annotation')
+    annotation_ref2 = config.get('sorted NCBI annotation', 'annotation')
+    return annotation_ref, annotation_ref2
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -172,7 +173,7 @@ def find_introns(read_iterator, mode='lr', stranded='no'):
 # CE 检测（v2 原版逻辑 + mode/ce_type 分支）
 # ─────────────────────────────────────────────────────────────────────────────
 
-def ce_caller(bamfile, referencename, chrm,
+def ce_caller(bamfile, referencename, referencename2, chrm,
               mode='lr', stranded='no', mapq=0,
               primary_only=False, min_junc=2, ce_type='multi',
               stringency='loose'):
@@ -186,9 +187,7 @@ def ce_caller(bamfile, referencename, chrm,
     known_splices_A = defaultdict(list)
 
     gtf  = pysam.TabixFile(referencename, parser=pysam.asGTF())
-    gtf2 = pysam.TabixFile(
-        '/projects/b1171/xlc7503/ref/GRCh38_latest_genomic.sorted.gff.gz',
-        parser=pysam.asGTF())
+    gtf2 = pysam.TabixFile(referencename2, parser=pysam.asGTF())
     db = gffutils.FeatureDB(referencename + '.db')
 
     # ── 读取 reads（新增 primary_only 过滤）─────────────────────────────
@@ -460,7 +459,7 @@ HEADERS = {
 
 def main():
     args = parse_args()
-    annotation_ref = config_getter('config.ini')
+    annotation_ref, annotation_ref2 = config_getter('config.ini')
 
     try:
         bamfile = pysam.AlignmentFile(args.input, 'rb', require_index=True)
@@ -505,7 +504,7 @@ def main():
         print('Finding cryptic exon in {}'.format(chrm))
         sys.stdout.flush()
         ce = ce_caller(
-            bamfile, annotation_ref, chrm,
+            bamfile, annotation_ref, annotation_ref2, chrm,
             mode=args.mode,
             stranded=args.stranded,
             mapq=args.mapq,
