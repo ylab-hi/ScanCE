@@ -21,7 +21,7 @@ from collections import Counter, defaultdict
 import gffutils
 from configparser import ConfigParser
 
-__version__ = 'v3.0'
+__version__ = 'v3.1'
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -54,8 +54,10 @@ def parse_args():
     parser.add_argument('-p', '--psi', type=float, default=0.0,
                         help='Min PSI threshold (sr mode only).')
     parser.add_argument('--min_junction_reads', type=int, default=2,
-                        help='Min reads for internal junction (multi mode). '
-                             'Lower to 1 for sparse single-cell data.')
+                        help='Threshold for internal junction support (multi mode): '
+                             'keeps junctions with count > this value. '
+                             'Default 2 means >=3 reads. '
+                             'Use 1 for >=2 reads, or 0 (sc multi recommended) for >=1 read.')
     parser.add_argument('--stringency', choices=['loose', 'strict'], default='loose',
                         help='loose=cryptic junction endpoint anywhere within an annotated exon; '
                              'strict=endpoint must be exactly at the exon boundary.')
@@ -112,19 +114,22 @@ def find_introns(read_iterator, mode='lr', stranded='no'):
 
         # ── 短读：XS tag ──────────────────────────────────────────────────
         if mode == 'sr':
-            strand = None
+            strands_to_use = []
             if stranded == 'no':
-                try:
-                    strand = r.get_tag('XS')   # '+' or '-'
-                except KeyError:
-                    continue
+                if r.has_tag('XS'):
+                    strands_to_use = [r.get_tag('XS')]
+                else:
+                    # 无 XS tag：双链计数，由下游 GTF 注释决定正确链方向
+                    strands_to_use = ['+', '-']
             elif stranded == 'fr-firststrand':
                 strand = ('+' if r.is_reverse else '-') if r.is_read1 \
                     else ('-' if r.is_reverse else '+')
+                strands_to_use = [strand]
             elif stranded == 'fr-secondstrand':
                 strand = ('-' if r.is_reverse else '+') if r.is_read1 \
                     else ('+' if r.is_reverse else '-')
-            if strand is None:
+                strands_to_use = [strand]
+            if not strands_to_use:
                 continue
 
             for tag, nt in r.cigartuples:
@@ -134,14 +139,17 @@ def find_introns(read_iterator, mode='lr', stranded='no'):
                     junc_start = base_position
                     base_position += nt
                     junc_end = base_position
-                    introns[(junc_start, junc_end, strand)] += 1
-                    reads[(junc_start, junc_end, strand)].append(r.query_name)
+                    for s in strands_to_use:
+                        introns[(junc_start, junc_end, s)] += 1
+                        reads[(junc_start, junc_end, s)].append(r.query_name)
                 elif tag == 2:
                     base_position += nt
 
         # ── 长读/单细胞：ts tag（v2 原版逻辑）────────────────────────────
         else:
-            for i, (tag, nt) in enumerate(r.cigartuples):
+            cigar = r.cigartuples
+            n_ops = len(cigar)
+            for i, (tag, nt) in enumerate(cigar):
                 if tag in match or (tag == 2 and nt < 30):
                     base_position += nt
                 elif tag == BAM_CREF_SKIP or (tag == 2 and nt >= 30):
@@ -158,11 +166,11 @@ def find_introns(read_iterator, mode='lr', stranded='no'):
                             continue
                     except KeyError:
                         continue
-                    # v2 Bug-fix: 相邻 deletion 校正
-                    if r.cigartuples[i - 1][0] == 2:
-                        junc_start -= r.cigartuples[i - 1][1]
-                    if r.cigartuples[i + 1][0] == 2:
-                        junc_end += r.cigartuples[i + 1][1]
+                    # v2 Bug-fix: 相邻 deletion 校正（边界保护）
+                    if i > 0 and cigar[i - 1][0] == 2:
+                        junc_start -= cigar[i - 1][1]
+                    if i + 1 < n_ops and cigar[i + 1][0] == 2:
+                        junc_end += cigar[i + 1][1]
                     introns[(junc_start, junc_end, strand)] += 1
                     reads[(junc_start, junc_end, strand)].append(r.query_name)
 
@@ -173,6 +181,16 @@ def find_introns(read_iterator, mode='lr', stranded='no'):
 # CE 检测（v2 原版逻辑 + mode/ce_type 分支）
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _iter_reads(bamfile, chrm, mapq, primary_only):
+    """流式迭代 BAM reads，跳过低质量和非主对齐，不累积到内存列表中。"""
+    for r in bamfile.fetch(chrm):
+        if r.mapping_quality < mapq:
+            continue
+        if primary_only and (r.is_secondary or r.is_supplementary):
+            continue
+        yield r
+
+
 def ce_caller(bamfile, referencename, referencename2, chrm,
               mode='lr', stranded='no', mapq=0,
               primary_only=False, min_junc=2, ce_type='multi',
@@ -180,8 +198,10 @@ def ce_caller(bamfile, referencename, referencename2, chrm,
     """
     对单条染色体进行 CE 检测。核心算法与 v2 一致，新增：
       - SR 模式（PSI、a_count）
+      - SC 模式（与 LR 相同剪接检测 + PSI 定量）
       - single CE 类型（无 internal junction）
       - primary_only 过滤（SC/LR）
+      - 流式读取 reads，避免整条染色体数据加载入内存
     """
     known_splices_D = defaultdict(list)
     known_splices_A = defaultdict(list)
@@ -190,16 +210,11 @@ def ce_caller(bamfile, referencename, referencename2, chrm,
     gtf2 = pysam.TabixFile(referencename2, parser=pysam.asGTF())
     db = gffutils.FeatureDB(referencename + '.db')
 
-    # ── 读取 reads（新增 primary_only 过滤）─────────────────────────────
-    all_reads = []
-    for r in bamfile.fetch(chrm):
-        if r.mapping_quality < mapq:
-            continue
-        if primary_only and (r.is_secondary or r.is_supplementary):
-            continue
-        all_reads.append(r)
-
-    introns, reads = find_introns(all_reads, mode=mode, stranded=stranded)
+    # ── 流式迭代 reads，不累积列表（内存优化）────────────────────────────
+    introns, reads = find_introns(
+        _iter_reads(bamfile, chrm, mapq, primary_only),
+        mode=mode, stranded=stranded,
+    )
 
     # ── 与注释比对（v2 原版逻辑不变）─────────────────────────────────────
     for intron in introns:
@@ -207,7 +222,7 @@ def ce_caller(bamfile, referencename, referencename2, chrm,
         intron_end      = intron[1] + 2
         intron_witnesses = introns[intron]
         try:
-            intersection = list(gtf.fetch(chrm, intron_start, intron_end))
+            intersection = list(gtf.fetch(chrm, intron_start, intron_end + 5))
         except ValueError:
             continue
 
@@ -246,9 +261,11 @@ def ce_caller(bamfile, referencename, referencename2, chrm,
                     continue
 
             # Acceptor match
-            # loose: junction end anywhere within exon; strict: exactly at exon start
+            # loose: junction end anywhere within exon (or up to 5 bp before exon start,
+            #        to tolerate HISAT2 ±1-2 bp de-novo junction coordinate shift);
+            # strict: exactly at exon start
             acceptor_range = range(region_start, region_start + 1) if stringency == 'strict' \
-                else range(region_start, region_end + 1)
+                else range(region_start - 5, region_end + 1)
             if intron_end - 2 in acceptor_range:
                 try:
                     b = list(db.children(db[transcript_id],
@@ -317,7 +334,10 @@ def ce_caller(bamfile, referencename, referencename2, chrm,
 
                 # ce_type 分支
                 if ce_type == 'single':
-                    # 单外显子：要求无 internal junction
+                    # 单外显子：要求无 significant internal junction
+                    # (过滤掉 count <= min_junc 的噪声 junction，与 multi 模式一致)
+                    junction_inside = [(s, e, c) for s, e, c in junction_inside
+                                       if c > min_junc]
                     if len(junction_inside) != 0:
                         continue
                 else:
@@ -361,8 +381,8 @@ def ce_caller(bamfile, referencename, referencename2, chrm,
                                 'strand': strand, 'gene_id': i[5], 'gene_name': i[6],
                             })
 
-                else:
-                    # LR/SC：同一条 read 必须跨越两个外侧 junction（v2 原版 ao 计算）
+                elif mode == 'lr':
+                    # LR：同一条 read 必须跨越两个外侧 junction（v2 原版 ao 计算）
                     list_sameread = list(
                         set(reads[(i[0], i[1] - 1, i[4])]).intersection(
                             reads[(x[0], x[1] - 1, x[4])]))
@@ -388,6 +408,39 @@ def ce_caller(bamfile, referencename, referencename2, chrm,
                                 'strand': strand, 'gene_id': i[5], 'gene_name': i[6],
                             })
 
+                else:
+                    # SC：同一条长读跨越两端 junction，额外计算 PSI
+                    list_sameread = list(
+                        set(reads[(i[0], i[1] - 1, i[4])]).intersection(
+                            reads[(x[0], x[1] - 1, x[4])]))
+                    ao = len(list_sameread)
+                    if ao == 0:
+                        continue
+                    # PSI = ao(CE spanning) / [ao + canonical junction reads]
+                    ao_canon = introns.get(
+                        (ref_intron_start, ref_intron_end, strand), 0)
+                    psi = round(ao / (ao + ao_canon), 4) \
+                        if (ao + ao_canon) > 0 else 0.0
+
+                    if ce_type == 'single':
+                        ce.append({
+                            'chrom': chrms, 'D': ref_intron_start, 'A': ref_intron_end,
+                            'ce_start': i[1], 'ce_end': x[0],
+                            'ao': ao, 'ao1': i[2], 'ao2': x[2],
+                            'ao_canon': ao_canon, 'psi': psi,
+                            'strand': strand, 'gene_id': i[5], 'gene_name': i[6],
+                        })
+                    else:
+                        for (js, je, jc) in junction_inside:
+                            ce.append({
+                                'chrom': chrms, 'D': ref_intron_start, 'A': ref_intron_end,
+                                'ce_start_1': i[1],  'ce_end_1': js,
+                                'ce_start_2': je,    'ce_end_2': x[0],
+                                'ao': ao, 'ao1': i[2], 'ao2': jc, 'ao3': x[2],
+                                'ao_canon': ao_canon, 'psi': psi,
+                                'strand': strand, 'gene_id': i[5], 'gene_name': i[6],
+                            })
+
     return ce
 
 
@@ -400,7 +453,7 @@ def filter_ce(ces, ao_min=1, psi_min=0.0, mode='lr', ce_type='multi'):
     for ce in ces:
         if ce['ao1'] < ao_min or ce['ao2'] < ao_min:
             continue
-        if mode == 'sr' and ce.get('psi', 0.0) < psi_min:
+        if mode in ('sr', 'sc') and ce.get('psi', 0.0) < psi_min:
             continue
 
         if ce_type == 'single':
@@ -411,7 +464,14 @@ def filter_ce(ces, ao_min=1, psi_min=0.0, mode='lr', ce_type='multi'):
                     ce['ao1'], ce['ao2'], ce['ao3'], ce['a_count'], ce['psi'],
                     ce['strand'], ce['gene_id'], ce['gene_name'],
                 ))
-            else:
+            elif mode == 'sc':
+                ce_filtered.add((
+                    ce['chrom'], ce['D'], ce['A'],
+                    ce['ce_start'], ce['ce_end'],
+                    ce['ao'], ce['ao1'], ce['ao2'], ce['ao_canon'], ce['psi'],
+                    ce['strand'], ce['gene_id'], ce['gene_name'],
+                ))
+            else:  # lr
                 ce_filtered.add((
                     ce['chrom'], ce['D'], ce['A'],
                     ce['ce_start'], ce['ce_end'],
@@ -427,7 +487,16 @@ def filter_ce(ces, ao_min=1, psi_min=0.0, mode='lr', ce_type='multi'):
                     ce['ao1'], ce['ao2'], ce['ao3'],
                     ce['strand'], ce['gene_id'], ce['gene_name'],
                 ))
-            else:
+            elif mode == 'sc':
+                ce_filtered.add((
+                    ce['chrom'], ce['D'], ce['A'],
+                    ce['ce_start_1'], ce['ce_end_1'],
+                    ce['ce_start_2'], ce['ce_end_2'],
+                    ce['ao'], ce['ao1'], ce['ao2'], ce['ao3'],
+                    ce['ao_canon'], ce['psi'],
+                    ce['strand'], ce['gene_id'], ce['gene_name'],
+                ))
+            else:  # lr
                 ce_filtered.add((
                     ce['chrom'], ce['D'], ce['A'],
                     ce['ce_start_1'], ce['ce_end_1'],
@@ -448,8 +517,10 @@ HEADERS = {
     ('sr', 'multi'):  'chrom\tD\tA\tce_start_1\tce_end_1\tce_start_2\tce_end_2\tao1\tao2\tao3\tstrand\tgene_id\tgene_name',
     ('lr', 'single'): 'chrom\tD\tA\tce_start\tce_end\tao\tao1\tao2\tstrand\tgene_id\tgene_name',
     ('lr', 'multi'):  'chrom\tD\tA\tce_start_1\tce_end_1\tce_start_2\tce_end_2\tao\tao1\tao2\tao3\tstrand\tgene_id\tgene_name',
-    ('sc', 'single'): 'cell_id\tchrom\tD\tA\tce_start\tce_end\tao\tao1\tao2\tstrand\tgene_id\tgene_name',
-    ('sc', 'multi'):  'cell_id\tchrom\tD\tA\tce_start_1\tce_end_1\tce_start_2\tce_end_2\tao\tao1\tao2\tao3\tstrand\tgene_id\tgene_name',
+    # SC: ao=跨越两端 junction 的 spanning reads; ao1/ao2=各端 junction reads;
+    #     ao_canon=跳过 CE 的标准 junction reads; PSI=ao/(ao+ao_canon)
+    ('sc', 'single'): 'cell_id\tchrom\tD\tA\tce_start\tce_end\tao\tao1\tao2\tao_canon\tPSI\tstrand\tgene_id\tgene_name',
+    ('sc', 'multi'):  'cell_id\tchrom\tD\tA\tce_start_1\tce_end_1\tce_start_2\tce_end_2\tao\tao1\tao2\tao3\tao_canon\tPSI\tstrand\tgene_id\tgene_name',
 }
 
 
@@ -484,8 +555,10 @@ def main():
     print('CE type         : {}'.format(args.ce_type))
     print('MAPQ >=         : {}'.format(args.mapq))
     print('ao_min          : {}'.format(args.ao))
+    if args.mode in ('sr', 'sc'):
+        print('PSI >=          : {}'.format(args.psi))
     if args.mode == 'sr':
-        print('Stranded        : {} | PSI >= {}'.format(args.stranded, args.psi))
+        print('Stranded        : {}'.format(args.stranded))
     if args.mode in ('lr', 'sc'):
         print('Primary only    : {}'.format(args.primary_only))
     if args.ce_type == 'multi':
@@ -515,11 +588,10 @@ def main():
         )
         ce_total.extend(ce)
 
-    filter_mode = 'lr' if args.mode == 'sc' else args.mode
     ce_filtered = filter_ce(ce_total,
                             ao_min=args.ao,
                             psi_min=args.psi,
-                            mode=filter_mode,
+                            mode=args.mode,
                             ce_type=args.ce_type)
 
     # 输出文件名
@@ -537,9 +609,11 @@ def main():
     with open(out_file_name, 'w') as out:
         out.write(header + '\n')
         for ce in sorted(ce_filtered, key=lambda e: (e[0], e[1])):
-            row = '\t'.join(str(s) for s in ce)
             if args.mode == 'sc':
-                row = cell_id + '\t' + row
+                # filter_ce 输出的 tuple 不含 cell_id，在写出时前置
+                row = cell_id + '\t' + '\t'.join(str(s) for s in ce)
+            else:
+                row = '\t'.join(str(s) for s in ce)
             out.write(row + '\n')
 
 
