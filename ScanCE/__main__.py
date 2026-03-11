@@ -3,14 +3,14 @@ import sys
 import os
 import subprocess
 
-__version__ = 'v2.0'
+__version__ = 'v3.0'
 
 COMMANDS = {
-    'Scan_ce_loose':   ('Scan_ce_loose.py',   'Short-read CE detection (loose, v1)'),
-    'Scan_ce_strict':  ('Scan_ce_strict.py',  'Short-read CE detection (strict, v1)'),
-    'Scan_ce_lr_loose':('Scan_ce_longread_loose.py', 'Long-read CE detection (loose, v1)'),
-    'Scan_ce_lr_strict':('Scan_ce_longread_strict.py','Long-read CE detection (strict, v1)'),
     'scan_ce':         ('ScanCE_v3.py',        'Unified CE detection for SR/LR/SC (v3, recommended)'),
+    'Scan_ce_loose':   ('Scan_ce_loose.py',   'Short-read CE detection (loose, v1, legacy)'),
+    'Scan_ce_strict':  ('Scan_ce_strict.py',  'Short-read CE detection (strict, v1, legacy)'),
+    'Scan_ce_lr_loose':('Scan_ce_longread_loose.py', 'Long-read CE detection (loose, v1, legacy)'),
+    'Scan_ce_lr_strict':('Scan_ce_longread_strict.py','Long-read CE detection (strict, v1, legacy)'),
 }
 
 def main():

@@ -1,0 +1,32 @@
+# ScanCE configuration file
+# Copy this file to config.ini and update the paths to match your system.
+#
+# Required reference files:
+#   1. Reference genome FASTA (e.g., hg38.fa) — used for sequence context
+#   2. GENCODE GTF annotation — must be sorted, bgzip-compressed, and tabix-indexed
+#      Also requires a gffutils FeatureDB (.db) file in the same directory
+#   3. NCBI RefSeq GFF3 annotation — must be sorted, bgzip-compressed, and tabix-indexed
+#
+# Preparation example:
+#   # Sort and index GENCODE GTF:
+#   (grep "^#" gencode.v38.annotation.gtf; grep -v "^#" gencode.v38.annotation.gtf | sort -k1,1 -k4,4n) | bgzip > gencode.v38.annotation_sorted.gtf.gz
+#   tabix -p gff gencode.v38.annotation_sorted.gtf.gz
+#
+#   # Build gffutils database:
+#   python -c "import gffutils; gffutils.create_db('gencode.v38.annotation_sorted.gtf.gz', 'gencode.v38.annotation_sorted.gtf.gz.db', force=True, merge_strategy='merge')"
+#
+#   # Sort and index NCBI RefSeq GFF3:
+#   (grep "^#" GRCh38_latest_genomic.gff; grep -v "^#" GRCh38_latest_genomic.gff | sort -k1,1 -k4,4n) | bgzip > GRCh38_latest_genomic.sorted.gff.gz
+#   tabix -p gff GRCh38_latest_genomic.sorted.gff.gz
+
+[fasta]
+
+genome=/path/to/hg38.fa
+
+[sorted GENCODE annotation]
+
+annotation=/path/to/gencode.v38.annotation_sorted.gtf.gz
+
+[NCBI RefSeq annotation]
+
+refseq=/path/to/GRCh38_latest_genomic.sorted.gff.gz

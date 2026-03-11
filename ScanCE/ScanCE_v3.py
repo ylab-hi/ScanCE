@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ScanCE v3.2 — Unified Cryptic Exon Detector
+ScanCE v3.0 — Unified Cryptic Exon Detector
 
 Extended from Scan_ce_hpc_longread_loose_multi_v2.py.
 
@@ -21,7 +21,7 @@ from collections import Counter, defaultdict
 import gffutils
 from configparser import ConfigParser
 
-__version__ = 'v3.2'
+__version__ = 'v3.0'
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -30,7 +30,7 @@ __version__ = 'v3.2'
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="ScanCE v3.2: Unified Cryptic Exon Detector",
+        description="ScanCE v3.0: Unified Cryptic Exon Detector",
         epilog="Based on Scan_ce_hpc_longread_loose_multi_v2.py. "
                "Modes: sr (short-read), lr (long-read), sc (single-cell long-read).",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -79,9 +79,9 @@ def config_getter(config_file='config.ini'):
     this_dir = os.path.dirname(os.path.realpath(__file__))
     config = ConfigParser(os.environ)
     config.read(os.path.join(this_dir, config_file))
-    annotation_ref  = config.get('sorted GENCODE annotation', 'annotation')
-    annotation_ref2 = config.get('sorted NCBI annotation', 'annotation')
-    return annotation_ref, annotation_ref2
+    annotation_ref = config.get('sorted GENCODE annotation', 'annotation')
+    refseq_ref = config.get('NCBI RefSeq annotation', 'refseq')
+    return annotation_ref, refseq_ref
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -192,7 +192,7 @@ def _iter_reads(bamfile, chrm, mapq, primary_only):
         yield r
 
 
-def ce_caller(bamfile, referencename, referencename2, chrm,
+def ce_caller(bamfile, referencename, refseq_ref, chrm,
               mode='lr', stranded='no', mapq=0,
               primary_only=False, min_junc=2, ce_type='multi',
               stringency='loose'):
@@ -209,7 +209,7 @@ def ce_caller(bamfile, referencename, referencename2, chrm,
     known_splices_A = defaultdict(list)
 
     gtf  = pysam.TabixFile(referencename, parser=pysam.asGTF())
-    gtf2 = pysam.TabixFile(referencename2, parser=pysam.asGTF())
+    gtf2 = pysam.TabixFile(refseq_ref, parser=pysam.asGTF())
     db = gffutils.FeatureDB(referencename + '.db')
 
     # ── Stream reads without accumulating into a list (memory optimization) ──
@@ -264,7 +264,7 @@ def ce_caller(bamfile, referencename, referencename2, chrm,
 
             # Acceptor match
             # loose: junction end anywhere within exon (or up to 5 bp before exon start,
-            #        to tolerate HISAT2 +/-1-2 bp de-novo junction coordinate shift);
+            #        to tolerate HISAT2 ±1-2 bp de-novo junction coordinate shift);
             # strict: exactly at exon start
             acceptor_range = range(region_start, region_start + 1) if stringency == 'strict' \
                 else range(region_start - 5, region_end + 1)
@@ -527,7 +527,6 @@ def filter_ce(ces, ao_min=1, psi_min=0.0, mode='lr', ce_type='multi'):
 HEADERS = {
     ('sr', 'single'): 'chrom\tD\tA\tce_start\tce_end\tao1\tao2\tao3\ta_count\tPSI\tstrand\tgene_id\tgene_name',
     ('sr', 'multi'):  'chrom\tD\tA\tce_start_1\tce_end_1\tce_start_2\tce_end_2\tao1\tao2\tao3\tstrand\tgene_id\tgene_name',
-    # LR: ao_canon = canonical junction reads (skipping CE); PSI = ao / (ao + ao_canon)
     ('lr', 'single'): 'chrom\tD\tA\tce_start\tce_end\tao\tao1\tao2\tao_canon\tPSI\tstrand\tgene_id\tgene_name',
     ('lr', 'multi'):  'chrom\tD\tA\tce_start_1\tce_end_1\tce_start_2\tce_end_2\tao\tao1\tao2\tao3\tao_canon\tPSI\tstrand\tgene_id\tgene_name',
     # SC: ao = spanning reads across both outer junctions; ao1/ao2 = per-junction reads;
@@ -543,7 +542,7 @@ HEADERS = {
 
 def main():
     args = parse_args()
-    annotation_ref, annotation_ref2 = config_getter('config.ini')
+    annotation_ref, refseq_ref = config_getter('config.ini')
 
     try:
         bamfile = pysam.AlignmentFile(args.input, 'rb', require_index=True)
@@ -568,7 +567,8 @@ def main():
     print('CE type         : {}'.format(args.ce_type))
     print('MAPQ >=         : {}'.format(args.mapq))
     print('ao_min          : {}'.format(args.ao))
-    print('PSI >=          : {}'.format(args.psi))
+    if args.mode in ('sr', 'sc', 'lr'):
+        print('PSI >=          : {}'.format(args.psi))
     if args.mode == 'sr':
         print('Stranded        : {}'.format(args.stranded))
     if args.mode in ('lr', 'sc'):
@@ -589,7 +589,7 @@ def main():
         print('Finding cryptic exon in {}'.format(chrm))
         sys.stdout.flush()
         ce = ce_caller(
-            bamfile, annotation_ref, annotation_ref2, chrm,
+            bamfile, annotation_ref, refseq_ref, chrm,
             mode=args.mode,
             stranded=args.stranded,
             mapq=args.mapq,

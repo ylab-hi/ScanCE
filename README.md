@@ -1,145 +1,213 @@
-[![PyPI version](https://badge.fury.io/py/ScanCE.svg)](https://badge.fury.io/py/ScanCE) [![Python 3.7](https://img.shields.io/badge/python-3.7-blue.svg)](https://www.python.org/downloads/release/python-360/)
-
 # ScanCE
 
-A computational workflow for cryptic exon (CE) identification. A cryptic exon is a novel exon located within an annotated intron, detected from RNA-seq data.
+**Unified *de novo* detection and quantification of cryptic exons from short-read, long-read, and single-cell RNA-seq**
 
-## Prerequisites
-
-`ScanCE` runs under Python 3.7+ and requires:
-
-```
-pysam
-gffutils
-```
-
-## Installation
-
-```console
-$ pip install ScanCE
-```
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
 ## Overview
 
-```
-ScanCE <command> [options]
+Cryptic exons (CEs) are unannotated exonic sequences within annotated introns that become aberrantly included in mature mRNA when repressive RNA-binding proteins (e.g., TDP-43) are depleted. CEs are implicated in neurodegeneration (ALS/FTD) and cancer.
 
-Commands:
-  scan_ce              Unified CE detection for SR / LR / SC  (v2, recommended)
-  Scan_ce_loose        Short-read, loose stringency  (v1 legacy)
-  Scan_ce_strict       Short-read, strict stringency (v1 legacy)
-  Scan_ce_lr_loose     Long-read,  loose stringency  (v1 legacy)
-  Scan_ce_lr_strict    Long-read,  strict stringency (v1 legacy)
-```
+**ScanCE** is the first purpose-built computational tool for *de novo* CE detection. It operates on a single BAM/CRAM file — no case-control or multi-sample design is required.
 
----
+## Features
 
-## `scan_ce` — Unified Command (v2, Recommended)
+- **Three sequencing modes**: short-read (Illumina), long-read (ONT/PacBio), and single-cell (scISO-seq/MAS-seq)
+- **Dual-annotation cross-referencing**: validates CE candidates against both GENCODE and NCBI RefSeq to reduce false positives
+- **Multi-exon CE detection**: identifies complex CEs comprising multiple novel exonic segments within a single intron
+- **Streaming architecture**: constant ~46 MB peak memory regardless of sequencing depth
+- **PSI quantification**: percent-spliced-in calculation for all modes; phased single-molecule evidence for long-read data
 
-`scan_ce` combines all sequencing types and stringency modes into a single tool.
+## Installation
 
-### Arguments
+### From PyPI (recommended)
 
-| Argument | Choices / Default | Description |
-|----------|-------------------|-------------|
-| `-i` | — | Input BAM file (must be indexed) |
-| `--mode` | `sr` / `lr` / `sc` | Sequencing type: Illumina bulk / ONT·PacBio bulk / single-cell long-read |
-| `--ce_type` | `single` / `multi` (default: `multi`) | Single-exon CE (no internal junction) or multi-exon CE (has internal junction) |
-| `--stringency` | `loose` / `strict` (default: `loose`) | Junction matching stringency (see below) |
-| `-m` | int (default: 50 for SR, 0 for LR/SC) | Min MAPQ filter |
-| `-a` | int (default: 1) | Min reads for each outer junction (ao1, ao2) |
-| `-o` | — | Output filename |
-| `-s` | `no` / `fr-firststrand` / `fr-secondstrand` | Strand library type for SR (default: `no`, uses XS tag) |
-| `-p` | float (default: 0.0) | Min PSI threshold (SR mode only) |
-| `--min_junction_reads` | int (default: 2) | Min reads for internal junction in `multi` mode |
-| `--primary_only` | flag | Use primary alignments only (recommended for PacBio CCS) |
-| `--cell_id` | string | Cell ID for SC mode (auto-inferred from BAM filename if not set) |
-
-### Stringency modes
-
-The `--stringency` parameter controls how cryptic junction endpoints are matched to annotated exons:
-
-| Mode | Donor match | Acceptor match |
-|------|-------------|----------------|
-| `loose` | Junction start falls **anywhere within** an annotated exon | Junction end falls **anywhere within** an annotated exon |
-| `strict` | Junction start falls **exactly at the exon end** boundary | Junction end falls **exactly at the exon start** boundary |
-
-**loose** (default) — finds more CEs, including those where the cryptic splice site is internal to a known exon:
-
-<img width="650" src="https://github.com/ylab-hi/ScanCE/blob/master/ScanCE_loose.png">
-
-**strict** — only finds CEs where the cryptic junction shares an exact boundary with a known exon:
-
-<img width="650" src="https://github.com/ylab-hi/ScanCE/blob/master/ScanCE_strict.png">
-
-### CE type
-
-| Type | Description |
-|------|-------------|
-| `single` | No junctions inside the CE region — the cryptic exon is a single novel exon |
-| `multi` | At least one junction inside the CE region — the CE spans multiple novel exons |
-
-### Usage examples
-
-**Short-read bulk RNA-seq (Illumina):**
-```console
-$ ScanCE scan_ce --mode sr --ce_type single --stringency loose -i sample.bam -m 50 -o sample.sr.single.loose.ce
-$ ScanCE scan_ce --mode sr --ce_type single --stringency strict -i sample.bam -m 50 -o sample.sr.single.strict.ce
-$ ScanCE scan_ce --mode sr --ce_type multi  --stringency loose -i sample.bam -m 50 -o sample.sr.multi.loose.ce
+```bash
+pip install ScanCE
 ```
 
-**Long-read bulk RNA-seq (ONT / PacBio):**
-```console
-$ ScanCE scan_ce --mode lr --ce_type single --stringency loose -i sample.bam -m 0 -o sample.lr.single.loose.ce
-$ ScanCE scan_ce --mode lr --ce_type multi  --stringency loose -i sample.bam -m 0 -o sample.lr.multi.loose.ce
+### From source
+
+```bash
+git clone https://github.com/ylab-hi/ScanCE.git
+cd ScanCE
+pip install .
 ```
 
-**Single-cell long-read (PacBio CCS / MAS-seq):**
-```console
-$ ScanCE scan_ce --mode sc --ce_type single --stringency loose -i cell.bam -m 0 --primary_only -o cell.sc.single.ce
+### Dependencies
+
+- Python >= 3.8
+- [pysam](https://github.com/pysam-developers/pysam) >= 0.19.0
+- [gffutils](https://github.com/daler/gffutils) >= 0.12
+
+## Reference file preparation
+
+ScanCE requires three reference files. Prepare them once and point to them via `config.ini`.
+
+### 1. Reference genome FASTA
+
+Download from [UCSC](https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/) or [Ensembl](https://www.ensembl.org/):
+
+```bash
+# Example: hg38
+wget https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz
+gunzip hg38.fa.gz
+samtools faidx hg38.fa
 ```
 
-### Configuration
+### 2. GENCODE GTF annotation (sorted + indexed)
 
-`scan_ce` reads the GENCODE annotation path from `config.ini` placed in the same directory as `ScanCE_v3.py`:
+```bash
+# Download GENCODE v38
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_38/gencode.v38.annotation.gtf.gz
+gunzip gencode.v38.annotation.gtf.gz
 
-```ini
-[sorted GENCODE annotation]
-annotation = /path/to/gencode.vXX.annotation_sorted.gtf.gz
+# Sort, compress, and index
+(grep "^#" gencode.v38.annotation.gtf; \
+ grep -v "^#" gencode.v38.annotation.gtf | sort -k1,1 -k4,4n) \
+ | bgzip > gencode.v38.annotation_sorted.gtf.gz
+tabix -p gff gencode.v38.annotation_sorted.gtf.gz
+
+# Build gffutils database
+python -c "
+import gffutils
+gffutils.create_db(
+    'gencode.v38.annotation_sorted.gtf.gz',
+    'gencode.v38.annotation_sorted.gtf.gz.db',
+    force=True, merge_strategy='merge')
+"
 ```
 
-The annotation file must be bgzip-compressed and tabix-indexed (`.tbi`), and a `gffutils` database (`.db`) must exist alongside it.
+### 3. NCBI RefSeq GFF3 annotation (sorted + indexed)
 
-### Output columns
+```bash
+# Download NCBI RefSeq
+wget https://ftp.ncbi.nlm.nih.gov/genomes/refseq/vertebrate_mammalian/Homo_sapiens/latest_assembly_versions/GCF_000001405.40_GRCh38.p14/GCF_000001405.40_GRCh38.p14_genomic.gff.gz
+gunzip GCF_000001405.40_GRCh38.p14_genomic.gff.gz
 
-| Mode / CE type | Columns |
-|----------------|---------|
-| SR / single | `chrom  D  A  ce_start  ce_end  ao1  ao2  ao3  a_count  PSI  strand  gene_id  gene_name` |
-| SR / multi | `chrom  D  A  ce_start_1  ce_end_1  ce_start_2  ce_end_2  ao1  ao2  ao3  strand  gene_id  gene_name` |
-| LR / single | `chrom  D  A  ce_start  ce_end  ao  ao1  ao2  strand  gene_id  gene_name` |
-| LR / multi | `chrom  D  A  ce_start_1  ce_end_1  ce_start_2  ce_end_2  ao  ao1  ao2  ao3  strand  gene_id  gene_name` |
-| SC / single | `cell_id  chrom  D  A  ce_start  ce_end  ao  ao1  ao2  strand  gene_id  gene_name` |
-| SC / multi | `cell_id  chrom  D  A  ce_start_1  ce_end_1  ce_start_2  ce_end_2  ao  ao1  ao2  ao3  strand  gene_id  gene_name` |
+# Sort, compress, and index
+(grep "^#" GCF_000001405.40_GRCh38.p14_genomic.gff; \
+ grep -v "^#" GCF_000001405.40_GRCh38.p14_genomic.gff | sort -k1,1 -k4,4n) \
+ | bgzip > GRCh38_latest_genomic.sorted.gff.gz
+tabix -p gff GRCh38_latest_genomic.sorted.gff.gz
+```
 
-**Column definitions:**
+### 4. Configure paths
+
+```bash
+cp config.ini.example config.ini
+# Edit config.ini with your actual paths
+```
+
+## Quick start
+
+```bash
+# Short-read mode (Illumina)
+scanCE -i sample.bam --mode sr --ce_type single -o sample.sr.single.ce
+
+# Long-read mode (ONT/PacBio)
+scanCE -i sample.bam --mode lr --ce_type single -o sample.lr.single.ce
+
+# Multi-exon CE detection
+scanCE -i sample.bam --mode lr --ce_type multi -o sample.lr.multi.ce
+
+# Single-cell mode (PacBio CCS/MAS-seq)
+scanCE -i cell.bam --mode sc --ce_type single --primary_only -o cell.sc.single.ce
+```
+
+## Usage
+
+```
+usage: scanCE [-h] -i INPUT --mode {sr,lr,sc} [--ce_type {single,multi}]
+              [-o OUTPUT] [-m MAPQ] [-a AO] [-s {no,fr-firststrand,fr-secondstrand}]
+              [-p PSI] [--min_junction_reads MIN_JUNCTION_READS]
+              [--stringency {loose,strict}] [--cell_id CELL_ID]
+              [--primary_only] [-v]
+
+Required arguments:
+  -i, --input           Input BAM/CRAM file (must be indexed)
+  --mode {sr,lr,sc}     sr=Illumina bulk, lr=ONT/PacBio bulk, sc=single-cell long-read
+
+Optional arguments:
+  --ce_type {single,multi}
+                        single=single-exon CE, multi=multi-exon CE (default: multi)
+  -o, --output          Output filename (default: <sample>.<mode>.<ce_type>.ce)
+  -m, --mapq            Min MAPQ (default: sr=50, lr/sc=0)
+  -a, --ao              Min reads for each outer junction (default: 1)
+  -s, --stranded        SR strand mode: no, fr-firststrand, fr-secondstrand (default: no)
+  -p, --psi             Min PSI threshold (default: 0.0)
+  --min_junction_reads  Min internal junction support for multi mode (default: 2)
+  --stringency {loose,strict}
+                        loose=endpoint anywhere within exon; strict=exact boundary (default: loose)
+  --primary_only        Use primary alignments only (recommended for PacBio CCS)
+  --cell_id             Cell ID for sc mode (auto-inferred from BAM filename if not given)
+```
+
+## Output format
+
+ScanCE outputs a tab-delimited `.ce` file. Column definitions vary by mode and CE type:
+
+### Short-read, single-exon (`sr` + `single`)
 
 | Column | Description |
 |--------|-------------|
-| `D` / `A` | Donor / acceptor positions of the outer canonical (skipping) intron |
-| `ce_start` / `ce_end` | Start and end of the cryptic exon |
-| `ao` | Spanning reads: same read covers both outer junctions (LR/SC only) |
-| `ao1` / `ao2` | Reads supporting each outer cryptic junction |
-| `ao3` | Reads supporting the canonical (exon-skipping) junction |
-| `a_count` | Reads fully contained within the CE region (SR only) |
-| `PSI` | Percent Spliced In = (ao1 + ao2 + a_count) / (ao1 + ao2 + ao3 + a_count) (SR only) |
+| chrom | Chromosome |
+| D | Donor site (annotated intron start) |
+| A | Acceptor site (annotated intron end) |
+| ce_start | Cryptic exon start coordinate |
+| ce_end | Cryptic exon end coordinate |
+| ao1 | Junction reads at 5' CE boundary |
+| ao2 | Junction reads at 3' CE boundary |
+| ao3 | Canonical skip junction reads |
+| a_count | Internal spanning reads |
+| PSI | Percent spliced-in |
+| strand | Strand (+/-) |
+| gene_id | Ensembl gene ID |
+| gene_name | Gene symbol |
 
----
+### Long-read, single-exon (`lr` + `single`)
 
-## v1 Legacy Commands
+| Column | Description |
+|--------|-------------|
+| chrom | Chromosome |
+| D | Donor site (annotated intron start) |
+| A | Acceptor site (annotated intron end) |
+| ce_start | Cryptic exon start coordinate |
+| ce_end | Cryptic exon end coordinate |
+| ao | Full-spanning reads (crossing both CE junctions) |
+| ao1 | Junction reads at 5' CE boundary |
+| ao2 | Junction reads at 3' CE boundary |
+| ao_canon | Canonical skip junction reads |
+| PSI | Percent spliced-in: ao / (ao + ao_canon) |
+| strand | Strand (+/-) |
+| gene_id | Ensembl gene ID |
+| gene_name | Gene symbol |
 
-The original v1 scripts are still available for backward compatibility. They require annotation files passed directly via `-r1` and `-r2`.
+### Multi-exon mode (`multi`)
 
-```console
-$ ScanCE Scan_ce_strict -i sample.bam -r1 gencode.v38.annotation_sorted.gtf.gz -r2 GRCh38_latest_genomic.sorted.gff.gz
-$ ScanCE Scan_ce_loose  -i sample.bam -r1 gencode.v38.annotation_sorted.gtf.gz -r2 GRCh38_latest_genomic.sorted.gff.gz
-```
+Multi-exon output includes additional columns `ce_start_1`, `ce_end_1`, `ce_start_2`, `ce_end_2` for the two sub-exon coordinates, replacing `ce_start`/`ce_end`.
+
+### Single-cell mode (`sc`)
+
+Single-cell output prepends a `cell_id` column to the corresponding `lr` format.
+
+## Algorithm
+
+ScanCE executes a five-step pipeline:
+
+1. **Junction extraction**: Parses CIGAR strings for splice junctions. In LR/SC mode, deletions >= 30 bp are reclassified as introns with adjacent-deletion boundary correction.
+2. **Strand assignment**: XS tag (SR) or ts tag (LR/SC) for strand inference. Dual-strand strategy for unstranded libraries.
+3. **Dual-annotation cross-referencing**: Matches junctions against both GENCODE and NCBI RefSeq. Only junctions absent from both databases are retained as CE candidates.
+4. **CE assembly and typology**: Pairs donor and acceptor junctions anchored in the same annotated intron. Classifies into single-exon or multi-exon CEs.
+5. **Quantification**: PSI computation with mode-specific evidence (junction counts for SR; phased single-molecule reads for LR/SC).
+
+## Citation
+
+If you use ScanCE in your research, please cite:
+
+> Li, X. and Yang, Y. (2026) ScanCE: unified *de novo* detection and quantification of cryptic exons from short-read, long-read, and single-cell RNA-seq. *Bioinformatics* (submitted).
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

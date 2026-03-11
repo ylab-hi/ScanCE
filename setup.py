@@ -13,17 +13,17 @@ with open('HISTORY.rst') as history_file:
 setup(
     author="Xiaotong Lu",
     author_email='lu000016@umn.edu',
-    python_requires='>=3.6',
+    python_requires='>=3.8',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
-        'Intended Audience :: Developers',
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3',
+        'Topic :: Scientific/Engineering :: Bio-Informatics',
     ],
-    description="A computational workflow for cryptic exon identification in RNA-seq data.",
-    install_requires=["pysam", "gffutils", "pandas", "biopython","numpy","scipy"],
+    description="Unified de novo detection and quantification of cryptic exons from short-read, long-read, and single-cell RNA-seq.",
+    install_requires=["pysam>=0.19.0", "gffutils>=0.12"],
     entry_points={
         'console_scripts': [
             'ScanCE=ScanCE.__main__:main'
@@ -37,8 +37,8 @@ setup(
     #keywords='ScanCE',
     name='ScanCE',
     packages=find_packages(include=['ScanCE', 'ScanCE.*']),
-    package_data={'ScanCE': ['config.ini', '*.py']},
+    package_data={'ScanCE': ['config.ini', 'config.ini.example', '*.py']},
     url='https://github.com/ylab-hi/ScanCE',
-    version='2.0',
+    version='3.0.0',
     zip_safe=False,
 )

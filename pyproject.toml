@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ScanCE"
+version = "3.0.0"
+description = "Unified de novo detection and quantification of cryptic exons from short-read, long-read, and single-cell RNA-seq"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.8"
+authors = [
+    {name = "Xiaotong Lu", email = "lu000016@umn.edu"},
+    {name = "Yadong Yang", email = "yadong.yang@northwestern.edu"},
+]
+keywords = ["cryptic exon", "RNA-seq", "splicing", "bioinformatics", "long-read"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "pysam>=0.19.0",
+    "gffutils>=0.12",
+]
+
+[project.urls]
+Homepage = "https://github.com/ylab-hi/ScanCE"
+Repository = "https://github.com/ylab-hi/ScanCE"
+Issues = "https://github.com/ylab-hi/ScanCE/issues"
+
+[project.scripts]
+scanCE = "ScanCE_v3:main"
