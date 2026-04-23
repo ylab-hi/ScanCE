@@ -381,6 +381,7 @@ def ce_caller(bamfile, referencename, refseq_ref, chrm,
                                 'ce_start_1': i[1],  'ce_end_1': js,
                                 'ce_start_2': je,    'ce_end_2': x[0],
                                 'ao1': ao1, 'ao2': jc, 'ao3': ao2,
+                                'a_count': a_count, 'psi': psi,
                                 'strand': strand, 'gene_id': i[5], 'gene_name': i[6],
                             })
 
@@ -496,6 +497,7 @@ def filter_ce(ces, ao_min=1, psi_min=0.0, mode='lr', ce_type='multi'):
                     ce['ce_start_1'], ce['ce_end_1'],
                     ce['ce_start_2'], ce['ce_end_2'],
                     ce['ao1'], ce['ao2'], ce['ao3'],
+                    ce['a_count'], ce['psi'],
                     ce['strand'], ce['gene_id'], ce['gene_name'],
                 ))
             elif mode == 'sc':
@@ -526,7 +528,7 @@ def filter_ce(ces, ao_min=1, psi_min=0.0, mode='lr', ce_type='multi'):
 
 HEADERS = {
     ('sr', 'single'): 'chrom\tD\tA\tce_start\tce_end\tao1\tao2\tao3\ta_count\tPSI\tstrand\tgene_id\tgene_name',
-    ('sr', 'multi'):  'chrom\tD\tA\tce_start_1\tce_end_1\tce_start_2\tce_end_2\tao1\tao2\tao3\tstrand\tgene_id\tgene_name',
+    ('sr', 'multi'):  'chrom\tD\tA\tce_start_1\tce_end_1\tce_start_2\tce_end_2\tao1\tao2\tao3\ta_count\tPSI\tstrand\tgene_id\tgene_name',
     ('lr', 'single'): 'chrom\tD\tA\tce_start\tce_end\tao\tao1\tao2\tao_canon\tPSI\tstrand\tgene_id\tgene_name',
     ('lr', 'multi'):  'chrom\tD\tA\tce_start_1\tce_end_1\tce_start_2\tce_end_2\tao\tao1\tao2\tao3\tao_canon\tPSI\tstrand\tgene_id\tgene_name',
     # SC: ao = spanning reads across both outer junctions; ao1/ao2 = per-junction reads;
