@@ -104,22 +104,22 @@ cp config.ini.example config.ini
 
 ```bash
 # Short-read mode (Illumina)
-scanCE -i sample.bam --mode sr --ce_type single -o sample.sr.single.ce
+ScanCE scan_ce -i sample.bam --mode sr --ce_type single -o sample.sr.single.ce
 
 # Long-read mode (ONT/PacBio)
-scanCE -i sample.bam --mode lr --ce_type single -o sample.lr.single.ce
+ScanCE scan_ce -i sample.bam --mode lr --ce_type single -o sample.lr.single.ce
 
 # Multi-exon CE detection
-scanCE -i sample.bam --mode lr --ce_type multi -o sample.lr.multi.ce
+ScanCE scan_ce -i sample.bam --mode lr --ce_type multi -o sample.lr.multi.ce
 
 # Single-cell mode (PacBio CCS/MAS-seq)
-scanCE -i cell.bam --mode sc --ce_type single --primary_only -o cell.sc.single.ce
+ScanCE scan_ce -i cell.bam --mode sc --ce_type single --primary_only -o cell.sc.single.ce
 ```
 
 ## Usage
 
-```
-usage: scanCE [-h] -i INPUT --mode {sr,lr,sc} [--ce_type {single,multi}]
+```text
+usage: ScanCE scan_ce [-h] -i INPUT --mode {sr,lr,sc} [--ce_type {single,multi}]
               [-o OUTPUT] [-m MAPQ] [-a AO] [-s {no,fr-firststrand,fr-secondstrand}]
               [-p PSI] [--min_junction_reads MIN_JUNCTION_READS]
               [--stringency {loose,strict}] [--cell_id CELL_ID]
@@ -151,7 +151,7 @@ ScanCE outputs a tab-delimited `.ce` file. Column definitions vary by mode and C
 ### Short-read, single-exon (`sr` + `single`)
 
 | Column | Description |
-|--------|-------------|
+| ------ | ----------- |
 | chrom | Chromosome |
 | D | Donor site (annotated intron start) |
 | A | Acceptor site (annotated intron end) |
@@ -169,7 +169,7 @@ ScanCE outputs a tab-delimited `.ce` file. Column definitions vary by mode and C
 ### Long-read, single-exon (`lr` + `single`)
 
 | Column | Description |
-|--------|-------------|
+| ------ | ----------- |
 | chrom | Chromosome |
 | D | Donor site (annotated intron start) |
 | A | Acceptor site (annotated intron end) |
