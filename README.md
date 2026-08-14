@@ -202,12 +202,6 @@ ScanCE executes a five-step pipeline:
 4. **CE assembly and typology**: Pairs donor and acceptor junctions anchored in the same annotated intron. Classifies into single-exon or multi-exon CEs.
 5. **Quantification**: PSI computation with mode-specific evidence (junction counts for SR; phased single-molecule reads for LR/SC).
 
-## Citation
-
-If you use ScanCE in your research, please cite:
-
-> Li, X. and Yang, Y. (2026) ScanCE: unified *de novo* detection and quantification of cryptic exons from short-read, long-read, and single-cell RNA-seq. *Bioinformatics* (submitted).
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
