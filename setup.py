@@ -7,9 +7,6 @@ from setuptools import setup, find_packages
 with open("README.md", encoding="utf-8") as fh:
     long_description = fh.read()
 
-with open('HISTORY.rst') as history_file:
-    history = history_file.read()
-
 setup(
     author="Xiaotong Lu",
     author_email='lu000016@umn.edu',
