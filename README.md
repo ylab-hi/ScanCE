@@ -21,18 +21,18 @@ Cryptic exons (CEs) are unannotated exonic sequences within annotated introns th
 
 ## Installation
 
-### From PyPI (recommended)
-
-```bash
-pip install ScanCE
-```
-
-### From source
+### From source (recommended)
 
 ```bash
 git clone https://github.com/ylab-hi/ScanCE.git
 cd ScanCE
 pip install .
+```
+
+### From PyPI (v1.x legacy only)
+
+```bash
+pip install ScanCE  # installs v1.x; for v3 use install from source above
 ```
 
 ### Dependencies
